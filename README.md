@@ -207,10 +207,14 @@ class Usuario:
             self.establecer_contrasena(contrasena)
         self._telefonos: List[str] = []
         self._emails: List[str] = []
+        self._inicio_sesion = self.InicioSesion(self.correo, self.hash_contrasena)
 
     def establecer_contrasena(self, contrasena: str):
         salt = bcrypt.gensalt()
         self.hash_contrasena = bcrypt.hashpw(contrasena.encode(), salt).decode()
+        # Actualizar inicio de sesión si ya existe
+        if hasattr(self, '_inicio_sesion'):
+            self._inicio_sesion.hash_contrasena = self.hash_contrasena
 
     def verificar_contrasena(self, contrasena: str) -> bool:
         if not self.hash_contrasena:
@@ -227,6 +231,8 @@ class Usuario:
             self._esta_autenticado = False
 
         def autenticar(self, contrasena: str) -> bool:
+            if not self.hash_contrasena:
+                return False
             self._esta_autenticado = bcrypt.checkpw(contrasena.encode(), self.hash_contrasena.encode())
             return self._esta_autenticado
 
@@ -237,11 +243,15 @@ class Usuario:
 class Cliente(Usuario):
     def __init__(self, nombre: str, correo: str, contrasena: str, telefono: Optional[str] = None):
         super().__init__(nombre, correo, contrasena, telefono, rol="customer")
-        self._inicio_sesion = self.InicioSesion(self.correo, self.hash_contrasena)
 
 class Admin(Usuario):
     def __init__(self, nombre: str, correo: str, contrasena: str, telefono: Optional[str] = None):
         super().__init__(nombre, correo, contrasena, telefono, rol="admin")
+
+    def crear_producto(self, nombre: str, slug: str, descripcion: str, marca: str, genero: str, precio: float, id_categoria: int):
+        # Importación local para evitar ciclos
+        from .product import Producto
+        return Producto(nombre, slug, descripcion, marca, genero, precio, id_categoria)
 ```
 
 **src/domain/entities/cart.py**
