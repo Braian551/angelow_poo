@@ -61,6 +61,26 @@ Voy a crear un sistema de gestión de tienda virtual modular, aplicando los prin
 
 ## 🏗️ Diagrama de Arquitectura
 
+```
+📦 Proyecto
+├── 🗂️ src
+│   ├── 🗂️ domain
+│   │   ├── entities/
+│   │   ├── value_objects/
+│   │   ├── exceptions/
+│   │   └── interfaces/
+│   ├── 🗂️ application
+│   │   ├── use_cases/
+│   │   ├── dtos/
+│   │   └── interfaces/
+│   ├── 🗂️ infrastructure
+│   │   ├── persistence/
+│   │   ├── serializers/
+│   │   └── config/
+│   └── 🗂️ presentation
+│       ├── cli/
+│       └── api/
+```
 ## 🔷 Diagrama de Clases
 
 ## Diseño de la arquitectura de software
