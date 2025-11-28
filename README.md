@@ -196,44 +196,44 @@ import bcrypt
 
 class Usuario:
     """Clase base para representar a los usuarios del sistema."""
-    def __init__(self, nombre: str, correo: str, contrasena: str, telefono: Optional[str] = None, rol: str = "customer"):
+    def __init__(self, nombre: str, correo: str, password: str, telefono: Optional[str] = None, rol: str = "customer"):
         self.id = None
         self.nombre = nombre
         self.correo = correo
         self.telefono = telefono
         self.rol = rol
-        self.hash_contrasena = None
-        if contrasena:
-            self.establecer_contrasena(contrasena)
+        self.hash_password = None
+        if password:
+            self.establecer_password(password)
         self._telefonos: List[str] = []
         self._emails: List[str] = []
-        self._inicio_sesion = self.InicioSesion(self.correo, self.hash_contrasena)
+        self._inicio_sesion = self.InicioSesion(self.correo, self.hash_password)
 
-    def establecer_contrasena(self, contrasena: str):
+    def establecer_password(self, password: str):
         salt = bcrypt.gensalt()
-        self.hash_contrasena = bcrypt.hashpw(contrasena.encode(), salt).decode()
+        self.hash_password = bcrypt.hashpw(password.encode(), salt).decode()
         # Actualizar inicio de sesión si ya existe
         if hasattr(self, '_inicio_sesion'):
-            self._inicio_sesion.hash_contrasena = self.hash_contrasena
+            self._inicio_sesion.hash_password = self.hash_password
 
-    def verificar_contrasena(self, contrasena: str) -> bool:
-        if not self.hash_contrasena:
+    def verificar_password(self, password: str) -> bool:
+        if not self.hash_password:
             return False
         try:
-            return bcrypt.checkpw(contrasena.encode(), self.hash_contrasena.encode())
+            return bcrypt.checkpw(password.encode(), self.hash_password.encode())
         except Exception:
             return False
 
     class InicioSesion:
-        def __init__(self, correo: str, hash_contrasena: str):
+        def __init__(self, correo: str, hash_password: str):
             self.correo = correo
-            self.hash_contrasena = hash_contrasena
+            self.hash_password = hash_password
             self._esta_autenticado = False
 
-        def autenticar(self, contrasena: str) -> bool:
-            if not self.hash_contrasena:
+        def autenticar(self, password: str) -> bool:
+            if not self.hash_password:
                 return False
-            self._esta_autenticado = bcrypt.checkpw(contrasena.encode(), self.hash_contrasena.encode())
+            self._esta_autenticado = bcrypt.checkpw(password.encode(), self.hash_password.encode())
             return self._esta_autenticado
 
         @property
@@ -241,12 +241,12 @@ class Usuario:
             return self._esta_autenticado
 
 class Cliente(Usuario):
-    def __init__(self, nombre: str, correo: str, contrasena: str, telefono: Optional[str] = None):
-        super().__init__(nombre, correo, contrasena, telefono, rol="customer")
+    def __init__(self, nombre: str, correo: str, password: str, telefono: Optional[str] = None):
+        super().__init__(nombre, correo, password, telefono, rol="customer")
 
 class Admin(Usuario):
-    def __init__(self, nombre: str, correo: str, contrasena: str, telefono: Optional[str] = None):
-        super().__init__(nombre, correo, contrasena, telefono, rol="admin")
+    def __init__(self, nombre: str, correo: str, password: str, telefono: Optional[str] = None):
+        super().__init__(nombre, correo, password, telefono, rol="admin")
 
     def crear_producto(self, nombre: str, slug: str, descripcion: str, marca: str, genero: str, precio: float, id_categoria: int):
         # Importación local para evitar ciclos
@@ -763,49 +763,6 @@ class RepositorioUsuarioMySQL(RepositorioUsuario):
             consulta = """
                 INSERT INTO users (id, name, email, phone, password, role)
                 VALUES (%s, %s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE
-                name=%s, email=%s, phone=%s, password=%s, role=%s
-            """
-            cursor.execute(consulta, (
-                persona.id, persona.nombre, persona.correo, persona.telefono, persona.hash_contrasena, persona.rol,
-                persona.nombre, persona.correo, persona.telefono, persona.hash_contrasena, persona.rol
-            ))
-            conexion.commit()
-            return persona.id
-        except Exception as e:
-            conexion.rollback()
-            raise e
-        finally:
-            cursor.close()
-
-    def buscar_por_email(self, email: str) -> Optional[Usuario]:
-        with self.bd.obtener_conexion() as conexion:
-            with conexion.cursor(dictionary=True) as cursor:
-                cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-                fila = cursor.fetchone()
-                if fila:
-                    return self._mapear_fila_a_usuario(fila)
-                return None
-    
-    def _mapear_fila_a_usuario(self, fila: dict) -> Usuario:
-        rol = fila.get('role', 'customer')
-        if rol == 'admin':
-            persona = Admin(nombre=fila['name'], correo=fila['email'], contrasena="", telefono=fila.get('phone'))
-        else:
-            persona = Cliente(nombre=fila['name'], correo=fila['email'], contrasena="", telefono=fila.get('phone'))
-        
-        persona.id = fila['id']
-        persona.rol = rol
-        persona.hash_contrasena = fila['password']
-        # Re-inicializar ayudante de login con hash cargado
-        persona._inicio_sesion = persona.InicioSesion(persona.correo, persona.hash_contrasena)
-        
-    def agregar_telefono(self, id_usuario: str, telefono: str) -> str:
-        conexion = self.bd.obtener_conexion()
-        cursor = conexion.cursor()
-        cursor.execute("UPDATE users SET phone = %s WHERE id = %s", (telefono, id_usuario))
-        conexion.commit()
-        cursor.close()
         return id_usuario
 
     def actualizar(self, usuario: Usuario) -> str:
@@ -1007,15 +964,15 @@ class ComandosCLI:
         self.caso_uso_eliminar_del_carrito = caso_uso_eliminar_del_carrito
         self.caso_uso_actualizar_item_carrito = caso_uso_actualizar_item_carrito
 
-    def registrar_usuario(self, nombre: str, correo: str, contrasena: str, telefono: Optional[str], rol: str) -> str:
+    def registrar_usuario(self, nombre: str, correo: str, password: str, telefono: Optional[str], rol: str) -> str:
         try:
-            usuario = self.casos_uso_usuario.registrar_usuario(nombre, correo, contrasena, telefono, rol)
+            usuario = self.casos_uso_usuario.registrar_usuario(nombre, correo, password, telefono, rol)
             return f"✅ Persona registrada con ID: {usuario.id}"
         except Exception as e:
             return f"❌ Error: {str(e)}"
 
-    def iniciar_sesion(self, correo: str, contrasena: str) -> Optional[Usuario]:
-        return self.casos_uso_usuario.iniciar_sesion(correo, contrasena)
+    def iniciar_sesion(self, correo: str, password: str) -> Optional[Usuario]:
+        return self.casos_uso_usuario.iniciar_sesion(correo, password)
 
     def actualizar_perfil(self, id_usuario: str, nombre: str, telefono: str) -> str:
         try:
@@ -1076,6 +1033,37 @@ class MenuCLI:
                     print("🔒 Sesión cerrada")
                 elif opcion == "6":
                     self._menu_carrito()
+
+    def _registrar_usuario(self):
+        print("\n--- REGISTRO DE USUARIO ---")
+        nombre = input("Nombre: ")
+        correo = input("Email: ")
+        password = input("Password: ")
+        telefono = input("Teléfono (opcional): ")
+        
+        # Preguntar rol solo para demostración (en real sería por defecto customer o panel admin)
+        es_admin = input("¿Es administrador? (s/n): ").lower() == 's'
+        rol = "admin" if es_admin else "customer"
+        
+        print(self.comandos.registrar_usuario(nombre, correo, password, telefono, rol))
+
+    def _iniciar_sesion(self):
+        print("\n--- INICIAR SESIÓN ---")
+        correo = input("Email: ")
+        password = input("Password: ")
+        
+        usuario = self.comandos.iniciar_sesion(correo, password)
+        if usuario:
+            self.usuario_actual = usuario
+            print(f"✅ Bienvenido, {usuario.nombre}!")
+        else:
+            print("❌ Credenciales inválidas")
+
+    def _mostrar_info(self):
+        print(f"\n📄 Información:")
+        print(self.usuario_actual)
+        print("Teléfonos:", self.usuario_actual.telefonos)
+        print("Emails:", self.usuario_actual.emails)
 
     def _editar_perfil(self):
         print("\n--- EDITAR PERFIL ---")
